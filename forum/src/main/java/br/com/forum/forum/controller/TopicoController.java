@@ -1,26 +1,103 @@
 package br.com.forum.forum.controller;
 
+import java.net.URI;
 import java.util.Arrays;
 import java.util.List;
 
+import javax.transaction.Transactional;
+import javax.validation.Valid;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.util.UriComponentsBuilder;
 
+import br.com.forum.forum.Dto.DetalhesDoTopicoDto;
 import br.com.forum.forum.Dto.TopicoDto;
+import br.com.forum.forum.controller.form.AtualizacaoTopicoForm;
+import br.com.forum.forum.controller.form.TopicoForm;
 import br.com.forum.forum.modelo.Curso;
 import br.com.forum.forum.modelo.Topico;
+import br.com.forum.forum.repository.CursoRepository;
+import br.com.forum.forum.repository.TopicoRepository;
+import org.springframework.web.bind.annotation.RequestParam;
+
 
 @RestController //Rest controller assume o papel do responsebody e do controller
+@RequestMapping("/topicos")
 public class TopicoController {
-  
-  @RequestMapping("/topicos")
-  public List<TopicoDto> lista() {
-    Topico topico = new Topico("Dúvida", "Dúvida com Spring", new Curso("Spring", "Programação"));
 
-    return TopicoDto.converter(Arrays.asList(topico, topico, topico));
+  @Autowired
+  private TopicoRepository topicoRepository;
+
+  @Autowired
+  private CursoRepository cursoRepository;
+  
+  @GetMapping
+  public List<TopicoDto> lista(String nomeCurso) {
+
+    if (nomeCurso == null) {
+      List<Topico> topicos = topicoRepository.findAll();
+      return TopicoDto.converter(topicos);
+    } else {
+      List<Topico> topicos = topicoRepository.findByCursoNome(nomeCurso);
+      return TopicoDto.converter(topicos);
+    }
   }
+
+  @PostMapping
+  @Transactional
+  public ResponseEntity<TopicoDto> cadastrar(@RequestBody @Valid TopicoForm form, UriComponentsBuilder uriBuilder) {
+
+    Topico topico = form.converter(cursoRepository);
+    topicoRepository.save(topico);
+
+    URI uri = uriBuilder.path("/topicos/{id}").buildAndExpand(topico.getId()).toUri();
+    return ResponseEntity.created(uri).body(new TopicoDto(topico));
+  }
+
+  @GetMapping("/{id}")
+  public DetalhesDoTopicoDto detalhar(@PathVariable Long id) {
+      Topico topico = topicoRepository.getById(id);
+      return new DetalhesDoTopicoDto(topico);
+  }
+  
+  @PutMapping("/{id}")
+  @Transactional
+  public ResponseEntity<TopicoDto> atualizar(@PathVariable Long id , @RequestBody @Valid AtualizacaoTopicoForm form) {
+   
+    Topico topico = form.atuallizar(id, topicoRepository);
+
+    return ResponseEntity.ok(new TopicoDto(topico));
+
+  }
+
+  @DeleteMapping("/{id}")
+  @Transactional
+  public ResponseEntity<?> remover(@PathVariable Long id) {
+    topicoRepository.deleteById(id);
+    return ResponseEntity.ok().build();
+  }
+
+}
+
+
+
+
+
+
+
+
+
   //@ResponseBody indica que nao vamos acessar uma página
   //@RequestMapping("/topicos") => indica que quando for acessada a url /topicos o método que será retornado é esse
   //List<Topico> => mostra uma lista com os topicos do mmodelo
@@ -28,4 +105,3 @@ public class TopicoController {
     cria um novo Tópico usando os parametros definidos no modelo
     Arrays.asList(topico, topico, topico) => transforma os objetos numa lista
   }*/
-}
